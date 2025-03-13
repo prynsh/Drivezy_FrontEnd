@@ -1,134 +1,126 @@
-import  { useState } from 'react';
-import { Search, Upload, LogOut } from 'lucide-react';
-import axios from 'axios';
-
-interface SearchResult {
-  id: string;
-  title: string;
-  link: string;
-  score: number;
-}
+import { LogOut } from "lucide-react";
+import {  useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 function Dashboard() {
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [results, setResults] = useState<{ title: string; link: string }[]>([]);
+  const navigate = useNavigate();
 
-  const handleProcessFiles = async () => {
+//   useEffect(() => {
+//     fetch("http://localhost:5000/profile", { credentials: "include" })
+//       .then((res) => res.text())
+//       .then((data) => setUser(data))
+//       .catch(() => navigate("/"));
+//   }, [navigate]);
+
+  const handleLogout = () => {
+    fetch("http://localhost:5000/logout", { credentials: "include" }).then(() =>
+      navigate("/signin")
+    );
+  };
+
+  const handleIngest = async () => {
+    setMessage("Ingesting files...");
     try {
-      setIsProcessing(true);
-      await axios.post('http://localhost:5000/ingest', {}, { withCredentials: true });
-      alert('Files processed successfully!');
-    } catch (error) {
-      console.error('Error processing files:', error);
-      alert('Error processing files. Please try again.');
-    } finally {
-      setIsProcessing(false);
+      const response = await fetch("http://localhost:5000/ingest", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await response.json();
+      setMessage(data.message || "Ingestion completed");
+    } catch {
+      setMessage("Failed to ingest files.");
     }
   };
 
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-
+    if (!searchQuery.trim()) {
+      setMessage("Please enter a search query.");
+      return;
+    }
+    setMessage("Searching...");
+    setResults([]);
     try {
-      setIsSearching(true);
-      const response = await axios.post('http://localhost:5000/search', 
-        { query: searchQuery },
-        { withCredentials: true }
-      );
-      setSearchResults(response.data.results);
-    } catch (error) {
-      console.error('Error searching:', error);
-      alert('Error performing search. Please try again.');
-    } finally {
-      setIsSearching(false);
+      const response = await fetch("http://localhost:5000/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: searchQuery }),
+      });
+      const data = await response.json();
+      setResults(data.results || []);
+      setMessage(data.results?.length ? null : "No relevant files found.");
+    } catch {
+      setMessage("Failed to search.");
     }
   };
 
-  const handleLogout = () => {
-    window.location.href = 'http://localhost:5000/logout';
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-gray-900">Document Search</h1>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
-          >
-            <LogOut size={20} />
-            Logout
-          </button>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      <nav className="w-full bg-white shadow-md py-4 px-6 flex items-center justify-between fixed top-0 left-0 right-0">
+        <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
+        <button
+          onClick={handleLogout}
+          className="bg-black text-white py-2 px-4 rounded-md hover:bg-gray-600 transition flex "
+        >
+          <LogOut className="mx-2 h-6 w-5" />Logout
+        </button>
+      </nav>
+      <div className="flex flex-col items-center justify-center flex-grow px-6 mt-16">
+        <div className="bg-white p-6 rounded-xl shadow-lg w-full max-w-md text-center">
+          <h2 className="text-xl font-semibold mb-4">Welcome!</h2>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Process Files Section */}
-        <div className="mb-8">
           <button
-            onClick={handleProcessFiles}
-            disabled={isProcessing}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            onClick={handleIngest}
+            className="w-full mb-4 bg-slate-500 text-white py-2 px-4 rounded-md hover:bg-black transition"
           >
-            <Upload size={20} />
-            {isProcessing ? 'Processing...' : 'Fetch and Process Files'}
+            Ingest Files
           </button>
-        </div>
 
-        {/* Search Section */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex gap-4 mb-8">
+          <div className="flex space-x-2">
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search your documents..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Enter search query"
+              className="flex-grow border p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
               onClick={handleSearch}
-              disabled={isSearching || !searchQuery.trim()}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              className="bg-gray-500 text-white py-2 px-4 rounded-md hover:bg-black transition"
             >
-              <Search size={20} />
-              {isSearching ? 'Searching...' : 'Search'}
+              Search
             </button>
           </div>
 
-          {/* Search Results */}
-          {searchResults.length > 0 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">Search Results</h2>
-              {searchResults.map((result) => (
-                <div key={result.id} className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">{result.title}</h3>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500">
-                      Relevance: {Math.round(result.score * 100)}%
-                    </span>
+          {results.length > 0 && (
+            <div className="mt-4 text-left">
+              <h3 className="text-lg font-semibold mb-2">Search Results:</h3>
+              <ul className="bg-gray-200 p-3 rounded-md">
+                {results.map((result, index) => (
+                  <li key={index} className="mb-2">
                     <a
                       href={result.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-indigo-600 hover:text-indigo-800 font-medium"
+                      className="text-black hover:underline"
                     >
-                      View Document →
+                      {result.title}
                     </a>
-                  </div>
-                </div>
-              ))}
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
-          {searchResults.length === 0 && searchQuery && !isSearching && (
-            <p className="text-center text-gray-600">No results found</p>
+          {message && (
+            <pre className="mt-4 text-sm bg-gray-200 p-3 rounded-md text-left overflow-auto">
+              {message}
+            </pre>
           )}
         </div>
-      </main>
+      </div>
     </div>
   );
 }
